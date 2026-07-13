@@ -1,0 +1,31 @@
+{:paths ["src"]
+ :deps {org.clojure/clojure {:mvn/version "1.12.1"}
+
+        ;; datahike — temporal Datalog store (konserve/persistent-sorted-set
+        ;; pulled transitively).
+        org.replikativ/datahike {:mvn/version "0.8.1719"}
+
+        ;; konserve — pinned to the per-key-lock refcount-reclaim release
+        ;; (bounds datahike's :locks channel heap residency).
+        org.replikativ/konserve {:mvn/version "0.9.352"}
+
+        ;; hive-spi — IKGStore / IPersistentKGStore / ITemporalKGStore contracts.
+        io.github.hive-agi/hive-spi {:mvn/version "0.1.3"}
+
+        ;; hive-dsl — Result/rescue DSL. hive-weave — retry/with-recovery auto-heal.
+        io.github.hive-agi/hive-dsl {:mvn/version "0.5.2"}
+        io.github.hive-agi/hive-weave {:mvn/version "0.2.6"}
+
+        com.taoensso/timbre {:mvn/version "6.8.0"}}
+
+ :aliases
+ {:test {:extra-paths ["test"]
+         :extra-deps  {io.github.cognitect-labs/test-runner
+                       {:git/tag "v0.5.1" :git/sha "dfb30dd"}}
+         :main-opts ["-m" "cognitect.test-runner"]
+         :exec-fn cognitect.test-runner.api/test}
+
+  :build
+  {:deps {io.github.clojure/tools.build {:mvn/version "0.10.9"}
+          slipset/deps-deploy {:mvn/version "0.2.2"}}
+   :ns-default build}}}

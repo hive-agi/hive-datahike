@@ -1,0 +1,5 @@
+{:lib      io.github.hive-agi/hive-datahike
+ :minor    1
+ :license  {:name "MIT" :url "https://opensource.org/licenses/MIT"}
+ :scm-url  "https://github.com/hive-agi/hive-datahike"
+ :src-dirs ["src"]}
