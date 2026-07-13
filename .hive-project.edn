@@ -1,0 +1,5 @@
+{:project-id "hive-datahike"
+ :parent "hive"
+ :description "Datahike (temporal Datalog) implementation of hive-spi.kg.protocol/IKGStore + ITemporalKGStore — a loadable KG storage backend. Config and core-norms resource are injected by the host; carries no hive-mcp dependency."
+ :language :clojure
+ :tags ["kg" "datahike" "temporal" "storage-backend" "spi-impl" "devinculation"]}
