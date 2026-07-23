@@ -6,6 +6,7 @@
   (:require [datahike.api :as d]
             [datahike.norm.norm :as norm]
             [datahike.query :as dq]
+            [datahike.tools :as tools]
             [hive-spi.kg.protocol :as kg]
             [hive-dsl.result :as r :refer [rescue]]
             [hive-weave.retry :as retry]
@@ -15,6 +16,36 @@
 ;; SPDX-License-Identifier: MIT
 
 (defonce ^:private addon-norms-registry (atom []))
+
+(def ^:private version-keys
+  [:datahike/version
+   :hitchhiker.tree/version
+   :persistent.set/version
+   :konserve/version])
+
+(def ^:private mismatch-type->version-key
+  {:db-was-written-with-newer-datahike-version :datahike/version
+   :db-was-written-with-newer-hht-version :hitchhiker.tree/version
+   :db-was-written-with-newer-pss-version :persistent.set/version
+   :db-was-written-with-newer-konserve-version :konserve/version})
+
+(defn runtime-version-provenance
+  "Versions loaded by the runtime for Datahike's connect-time checks."
+  []
+  (select-keys (tools/meta-data) version-keys))
+
+(defn- connection-version-provenance
+  [conn]
+  {:runtime (runtime-version-provenance)
+   :stored (select-keys (:meta (d/db conn)) version-keys)})
+
+(defn- mismatch-version-provenance
+  [e]
+  (let [{:keys [type stored now] :as data} (ex-data e)]
+    (when-let [version-key (get mismatch-type->version-key type)]
+      {:runtime (assoc (runtime-version-provenance) version-key now)
+       :stored {version-key stored}
+       :mismatch (select-keys data [:type :stored :now])})))
 
 (def ^:dynamic *read-timeout-ms*
   "Upper bound for a Datahike read deref. Dynamic so slow cold-cache workloads
@@ -35,7 +66,9 @@
 
 (defn- result-error
   [result]
-  (select-keys result [:error :message :class :timeout-ms :name]))
+  (select-keys result
+               [:error :message :class :timeout-ms :name
+                :version-provenance]))
 
 (defn- throw-read-failed! [label result]
   (throw (ex-info (str "Datahike KG read failed: " label)
@@ -90,8 +123,20 @@
 
 (defn- connect-result
   [cfg]
-  (r/try-effect* :datahike/connect-failed
-    (d/connect cfg)))
+  (try
+    (let [conn (d/connect cfg)]
+      (when-let [provenance (rescue nil (connection-version-provenance conn))]
+        (log/info "Datahike KG version provenance"
+                  {:version-provenance provenance}))
+      (r/ok conn))
+    (catch Exception e
+      (let [provenance (rescue nil (mismatch-version-provenance e))]
+        (r/err :datahike/connect-failed
+               (cond-> {:class (str (class e))
+                        :message (.getMessage e)
+                        :cause e}
+                 provenance
+                 (assoc :version-provenance provenance)))))))
 
 (defn- ensure-core-norms-result
   "Apply the host-injected core norms resource, if any. No-op when nil."
@@ -245,7 +290,10 @@
       (let [result (init-conn-result cfg core-norms-resource)]
         (when (r/err? result)
           (throw (ex-info "Datahike KG connection initialization failed"
-                          (assoc result :cfg cfg))))
+                          (-> result
+                              (dissoc :cause)
+                              (assoc :cfg cfg))
+                          (:cause result))))
         (reset! conn-atom (:ok result))))
     (when (nil? @conn-atom)
       (throw (ex-info "Datahike KG connection is nil after initialization" {:cfg cfg})))
@@ -355,6 +403,28 @@
           (let [cfg (make-config opts)]
             (log/info "Creating Datahike graph store" {:cfg cfg})
             (->DatahikeStore (atom nil) cfg (:core-norms-resource opts)))))
+
+(defn health
+  "Report whether the loaded runtime can open the store and its version provenance."
+  [store]
+  (try
+    {:status :healthy
+     :backend :datahike
+     :compatible? true
+     :version-provenance
+     (connection-version-provenance (kg/ensure-conn! store))}
+    (catch Exception e
+      (let [data (ex-data e)]
+        {:status :unhealthy
+         :backend :datahike
+         :compatible? false
+         :error (cond-> {:class (str (class e))
+                         :message (.getMessage e)}
+                  (:error data) (assoc :type (:error data)))
+         :version-provenance
+         (or (:version-provenance data)
+             (mismatch-version-provenance e)
+             {:runtime (rescue {} (runtime-version-provenance))})}))))
 
 (defn history-db
   "Full history database for temporal queries."
