@@ -1,4 +1,9 @@
 {:paths ["src"]
+
+ ;; The private registry. Declared HERE, not only in a developer's user-level
+ ;; deps.edn, so a cold clone and CI resolve hive-agi artifacts identically.
+ ;; Credentials come from ~/.m2/settings.xml (server id "hive-gitea").
+ :mvn/repos {"hive-gitea" {:url "https://gitea.hive-mcp.com/api/packages/hive-agi/maven"}}
  :deps {org.clojure/clojure {:mvn/version "1.12.1"}
 
         ;; datahike — temporal Datalog store (konserve/persistent-sorted-set
