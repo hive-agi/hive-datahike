@@ -55,3 +55,26 @@
               (is (= "0.9.352"
                      (get-in provenance [:runtime :konserve/version])))
               (is (some? (.getCause e))))))))))
+
+(deftest temporal-queries-run-through-the-port
+  (let [sut (memory-store)]
+    (try
+      (let [report (kg/transact! sut [{:db/id -1 :name "alpha"}])
+            tx     (get-in report [:db-after :max-tx])
+            q      '[:find ?n :where [_ :name ?n]]]
+        (testing "query-as-of reads the db at a transaction without exposing it"
+          (is (= #{["alpha"]} (kg/query-as-of sut tx q))))
+        (testing "query-history sees the asserted fact"
+          (is (contains? (kg/query-history sut q) ["alpha"])))
+        (testing "the inputs arity binds extra :in parameters"
+          (is (= #{["alpha"]}
+                 (kg/query-as-of sut tx
+                                 '[:find ?n :in $ ?want :where [_ :name ?n] [(= ?n ?want)]]
+                                 ["alpha"])))
+          (is (contains? (kg/query-history
+                          sut
+                          '[:find ?n :in $ ?want :where [_ :name ?n] [(= ?n ?want)]]
+                          ["alpha"])
+                         ["alpha"]))))
+      (finally
+        (kg/close! sut)))))

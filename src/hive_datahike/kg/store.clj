@@ -392,7 +392,27 @@
     (d/as-of (d/db (kg/ensure-conn! this)) tx-or-time))
 
   (since-db [this tx-or-time]
-    (d/since (d/db (kg/ensure-conn! this)) tx-or-time)))
+    (d/since (d/db (kg/ensure-conn! this)) tx-or-time))
+
+  (query-history [this q]
+    (read-with-retry "query-history"
+                     #(kg/reset-conn! this)
+                     #(d/q q (kg/history-db this))))
+
+  (query-history [this q inputs]
+    (read-with-retry "query-history-with-inputs"
+                     #(kg/reset-conn! this)
+                     #(apply d/q q (kg/history-db this) inputs)))
+
+  (query-as-of [this tx-or-time q]
+    (read-with-retry "query-as-of"
+                     #(kg/reset-conn! this)
+                     #(d/q q (kg/as-of-db this tx-or-time))))
+
+  (query-as-of [this tx-or-time q inputs]
+    (read-with-retry "query-as-of-with-inputs"
+                     #(kg/reset-conn! this)
+                     #(apply d/q q (kg/as-of-db this tx-or-time) inputs))))
 
 (defn create-store
   "Create a Datahike-backed IKGStore. See `make-config` for config opts;
