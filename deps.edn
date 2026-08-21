@@ -8,17 +8,17 @@
 
         ;; datahike — temporal Datalog store (konserve/persistent-sorted-set
         ;; pulled transitively).
-        org.replikativ/datahike {:mvn/version "0.8.1784"}
+        org.replikativ/datahike {:mvn/version "0.8.1788"}
 
         ;; konserve — pinned to the per-key-lock refcount-reclaim release
         ;; (bounds datahike's :locks channel heap residency).
-        org.replikativ/konserve {:mvn/version "0.9.372"}
+        org.replikativ/konserve {:mvn/version "0.9.375"}
 
         ;; hive-spi — IKGStore / IPersistentKGStore / ITemporalKGStore contracts.
-        io.github.hive-agi/hive-spi {:mvn/version "0.1.18"}
+        io.github.hive-agi/hive-spi {:mvn/version "0.1.20"}
 
         ;; hive-dsl — Result/rescue DSL. hive-weave — retry/with-recovery auto-heal.
-        io.github.hive-agi/hive-dsl {:mvn/version "0.5.10"}
+        io.github.hive-agi/hive-dsl {:mvn/version "0.5.14"}
         io.github.hive-agi/hive-weave {:mvn/version "0.3.1"}
 
         com.taoensso/timbre {:mvn/version "6.8.0"}}
@@ -31,5 +31,5 @@
          :exec-fn cognitect.test-runner.api/test}
 
   :build
-  {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.3"}}
+  {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.8"}}
    :ns-default hive-build.api}}}
