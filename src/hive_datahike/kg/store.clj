@@ -238,14 +238,24 @@
    resolution — that is the host's job).
 
    opts:
-     :db-path    (required for :file backend) on-disk path
-     :backend    :file (default) | :mem/:memory
-     :id         store id — a UUID, a UUID-string, or nil
-     :store-name when :id absent, the store id is nameUUIDFromBytes of this
-                 (default \"hive-kg\")
-     :index      datahike index (default :datahike.index/persistent-set)
-     :writer     distributed write backend opts (see make-writer-config)"
-  [& [{:keys [db-path backend index id store-name writer]
+     :db-path       (required for :file backend) on-disk path
+     :backend       :file (default) | :mem/:memory
+     :id            store id — a UUID, a UUID-string, or nil
+     :store-name    when :id absent, the store id is nameUUIDFromBytes of this
+                    (default \"hive-kg\")
+     :index         datahike index (default :datahike.index/persistent-set)
+     :writer        distributed write backend opts (see make-writer-config)
+     :keep-history? when supplied, sets Datahike bitemporality. OMITTED leaves
+                    the key off the config entirely, so Datahike's own default
+                    (history ON) applies and an existing store keeps its
+                    creation-time setting.
+     :value-caps    when supplied, bounds value sizes — :default for Datahike's
+                    default caps, or an explicit map. OMITTED leaves values
+                    uncapped, which Datahike warns about at connect time.
+
+   Both new keys are pass-through only: this fn never chooses a policy, so a
+   caller that supplies neither gets byte-identical config to before."
+  [& [{:keys [db-path backend index id store-name writer keep-history? value-caps]
        :or {index :datahike.index/persistent-set
             backend :file
             store-name "hive-kg"}}]]
@@ -263,7 +273,9 @@
                      :index index})
         writer-cfg (when writer (make-writer-config writer))]
     (cond-> store-cfg
-      writer-cfg (assoc :writer writer-cfg))))
+      (some? keep-history?) (assoc :keep-history? (boolean keep-history?))
+      (some? value-caps)    (assoc :value-caps value-caps)
+      writer-cfg            (assoc :writer writer-cfg))))
 
 (defn- validate-config!
   "Validate Datahike configuration and create the parent directory if needed."

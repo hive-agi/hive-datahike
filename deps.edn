@@ -15,11 +15,11 @@
         org.replikativ/konserve {:mvn/version "0.9.375"}
 
         ;; hive-spi — IKGStore / IPersistentKGStore / ITemporalKGStore contracts.
-        io.github.hive-agi/hive-spi {:mvn/version "0.1.20"}
+        io.github.hive-agi/hive-spi {:mvn/version "0.2.0"}
 
         ;; hive-dsl — Result/rescue DSL. hive-weave — retry/with-recovery auto-heal.
-        io.github.hive-agi/hive-dsl {:mvn/version "0.5.16"}
-        io.github.hive-agi/hive-weave {:mvn/version "0.3.2"}
+        io.github.hive-agi/hive-dsl {:mvn/version "0.5.17"}
+        io.github.hive-agi/hive-weave {:mvn/version "0.3.3"}
 
         com.taoensso/timbre {:mvn/version "6.8.0"}}
 
