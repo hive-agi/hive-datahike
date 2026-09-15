@@ -4,7 +4,7 @@
  ;; deps.edn, so a cold clone and CI resolve hive-agi artifacts identically.
  ;; Credentials come from ~/.m2/settings.xml (server id "hive-gitea").
  :mvn/repos {"hive-gitea" {:url "https://gitea.hive-mcp.com/api/packages/hive-agi/maven"}}
- :deps {org.clojure/clojure {:mvn/version "1.12.5"}
+ :deps {org.clojure/clojure {:mvn/version "1.12.6"}
 
         ;; datahike — temporal Datalog store (konserve/persistent-sorted-set
         ;; pulled transitively).
@@ -15,11 +15,11 @@
         org.replikativ/konserve {:mvn/version "0.9.375"}
 
         ;; hive-spi — IKGStore / IPersistentKGStore / ITemporalKGStore contracts.
-        io.github.hive-agi/hive-spi {:mvn/version "1.1.0"}
+        io.github.hive-agi/hive-spi {:mvn/version "1.1.1"}
 
         ;; hive-dsl — Result/rescue DSL. hive-weave — retry/with-recovery auto-heal.
-        io.github.hive-agi/hive-dsl {:mvn/version "0.5.24"}
-        io.github.hive-agi/hive-weave {:mvn/version "0.3.9"}
+        io.github.hive-agi/hive-dsl {:mvn/version "0.5.27"}
+        io.github.hive-agi/hive-weave {:mvn/version "0.3.12"}
 
         com.taoensso/timbre {:mvn/version "6.8.0"}}
 
@@ -31,5 +31,5 @@
          :exec-fn cognitect.test-runner.api/test}
 
   :build
-  {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.15"}}
+  {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.17"}}
    :ns-default hive-build.api}}}
