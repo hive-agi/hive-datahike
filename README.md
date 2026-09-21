@@ -1,5 +1,14 @@
 # hive-datahike
 
+<!-- hive-badges -->
+
+[![Clojars Project](https://img.shields.io/clojars/v/io.github.hive-agi/hive-datahike.svg)](https://clojars.org/io.github.hive-agi/hive-datahike)
+[![cljdoc](https://cljdoc.org/badge/io.github.hive-agi/hive-datahike)](https://cljdoc.org/d/io.github.hive-agi/hive-datahike/CURRENT)
+[![release](https://github.com/hive-agi/hive-datahike/actions/workflows/release.yml/badge.svg)](https://github.com/hive-agi/hive-datahike/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+
+<!-- /hive-badges -->
+
 Datahike (temporal Datalog) implementation of the hive KG storage SPI.
 
 `src/hive_datahike/kg/store.clj` implements

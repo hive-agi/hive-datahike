@@ -4,22 +4,28 @@
  ;; deps.edn, so a cold clone and CI resolve hive-agi artifacts identically.
  ;; Credentials come from ~/.m2/settings.xml (server id "hive-gitea").
  :mvn/repos {"hive-gitea" {:url "https://gitea.hive-mcp.com/api/packages/hive-agi/maven"}}
- :deps {org.clojure/clojure {:mvn/version "1.12.1"}
+ :deps {org.clojure/clojure {:mvn/version "1.12.6"}
 
         ;; datahike — temporal Datalog store (konserve/persistent-sorted-set
         ;; pulled transitively).
-        org.replikativ/datahike {:mvn/version "0.8.1784"}
+        org.replikativ/datahike {:mvn/version "0.8.1895"}
 
         ;; konserve — pinned to the per-key-lock refcount-reclaim release
         ;; (bounds datahike's :locks channel heap residency).
-        org.replikativ/konserve {:mvn/version "0.9.372"}
+        org.replikativ/konserve {:mvn/version "0.9.398"}
+
+        ;; environ — datahike.config REQUIRES environ.core and datahike's own
+        ;; pom does not declare it, so a basis that resolves datahike alone
+        ;; cannot load datahike.config at all. Declared here because this repo
+        ;; is the one that owns the datahike dependency.
+        environ/environ {:mvn/version "1.2.0"}
 
         ;; hive-spi — IKGStore / IPersistentKGStore / ITemporalKGStore contracts.
-        io.github.hive-agi/hive-spi {:mvn/version "0.1.18"}
+        io.github.hive-agi/hive-spi {:mvn/version "1.3.0"}
 
         ;; hive-dsl — Result/rescue DSL. hive-weave — retry/with-recovery auto-heal.
-        io.github.hive-agi/hive-dsl {:mvn/version "0.5.10"}
-        io.github.hive-agi/hive-weave {:mvn/version "0.3.1"}
+        io.github.hive-agi/hive-dsl {:mvn/version "0.5.31"}
+        io.github.hive-agi/hive-weave {:mvn/version "0.3.16"}
 
         com.taoensso/timbre {:mvn/version "6.8.0"}}
 
@@ -31,5 +37,5 @@
          :exec-fn cognitect.test-runner.api/test}
 
   :build
-  {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.0"}}
+  {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.22"}}
    :ns-default hive-build.api}}}
