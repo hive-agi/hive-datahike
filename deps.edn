@@ -8,7 +8,7 @@
 
         ;; datahike — temporal Datalog store (konserve/persistent-sorted-set
         ;; pulled transitively).
-        org.replikativ/datahike {:mvn/version "0.8.1895"}
+        org.replikativ/datahike {:mvn/version "0.8.1899"}
 
         ;; konserve — pinned to the per-key-lock refcount-reclaim release
         ;; (bounds datahike's :locks channel heap residency).
