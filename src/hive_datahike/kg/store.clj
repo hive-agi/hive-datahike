@@ -298,18 +298,21 @@
   kg/IKGStore
 
   (ensure-conn! [_this]
-    (when (nil? @conn-atom)
-      (let [result (init-conn-result cfg core-norms-resource)]
-        (when (r/err? result)
-          (throw (ex-info "Datahike KG connection initialization failed"
-                          (-> result
-                              (dissoc :cause)
-                              (assoc :cfg cfg))
-                          (:cause result))))
-        (reset! conn-atom (:ok result))))
-    (when (nil? @conn-atom)
-      (throw (ex-info "Datahike KG connection is nil after initialization" {:cfg cfg})))
-    @conn-atom)
+    ;; Locked: two callers racing past the nil check would each d/connect and
+    ;; leave an extra Datahike lease that reset-conn! never sees.
+    (locking conn-atom
+      (when (nil? @conn-atom)
+        (let [result (init-conn-result cfg core-norms-resource)]
+          (when (r/err? result)
+            (throw (ex-info "Datahike KG connection initialization failed"
+                            (-> result
+                                (dissoc :cause)
+                                (assoc :cfg cfg))
+                            (:cause result))))
+          (reset! conn-atom (:ok result))))
+      (when (nil? @conn-atom)
+        (throw (ex-info "Datahike KG connection is nil after initialization" {:cfg cfg})))
+      @conn-atom))
 
   (transact! [this tx-data]
     ;; d/transact! is async (returns a throwable-promise); deref to block until
@@ -360,11 +363,16 @@
 
   (reset-conn! [this]
     ;; NON-DESTRUCTIVE — release conn and reopen against the SAME on-disk DB.
-    (log/info "Reopening Datahike KG store (non-destructive)" {:cfg cfg})
-    (when-let [c @conn-atom]
-      (rescue nil (d/release c)))
-    (reset! conn-atom nil)
-    (kg/ensure-conn! this))
+    ;; Release EVERY lease: Datahike caches one connection per store and hands
+    ;; it back to d/connect while any lease is left, so a single release keeps
+    ;; a connection whose writer died and no reopen ever recovers (2026-10-04:
+    ;; 1122 leases, every KG write failed with "Writer is shut down").
+    (locking conn-atom
+      (log/info "Reopening Datahike KG store (non-destructive)" {:cfg cfg})
+      (when-let [c @conn-atom]
+        (rescue nil (d/release c true)))
+      (reset! conn-atom nil)
+      (kg/ensure-conn! this)))
 
   (close! [_this]
     (when-let [c @conn-atom]
