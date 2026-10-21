@@ -9,10 +9,10 @@
             [datahike.tools :as tools]
             [hive-spi.kg.protocol :as kg]
             [hive-dsl.result :as r :refer [rescue]]
-            [hive-weave.retry :as retry]
             [clojure.java.io :as io]
             [clojure.string :as str]
-            [taoensso.timbre :as log]))
+            [taoensso.timbre :as log]
+            [hive-datahike.kg.bounded :as bounded]))
 ;; SPDX-License-Identifier: MIT
 
 (defonce ^:private addon-norms-registry (atom []))
@@ -64,41 +64,25 @@
   (swap! addon-norms-registry conj resource-path)
   (log/info "Registered addon KG norms" {:path resource-path}))
 
-(defn- result-error
-  [result]
-  (select-keys result
-               [:error :message :class :timeout-ms :name
-                :version-provenance]))
-
-(defn- throw-read-failed! [label result]
-  (throw (ex-info (str "Datahike KG read failed: " label)
-                  (assoc (result-error result) :operation label))))
-
-(defn- throw-write-failed! [label result]
-  (throw (ex-info (str "Datahike KG write failed: " label)
-                  (assoc (result-error result) :operation label))))
-
 (defn- read-with-retry
-  "Bounded Datahike read with auto-heal. Per-attempt budget `*read-timeout-ms*`;
-   recover via `reopen!` on non-timeout failure; timeouts surface immediately."
-  [label reopen! f]
-  (retry/with-recovery
-    {:timeout-ms *read-timeout-ms*
-     :name       label
-     :recover!   reopen!
-     :on-failure (fn [l result] (throw-read-failed! l result))}
-    f))
+  "Bounded Datahike read with auto-heal: ONE task on the store's read pool, budget
+   `*read-timeout-ms*`; recover via `reset-conn!` on a non-timeout failure;
+   timeouts and pool rejections surface immediately. See hive-datahike.kg.bounded."
+  [store label f]
+  (bounded/read-with-retry
+   {:timeout-ms *read-timeout-ms*
+    :pool       (bounded/read-pool-of store)
+    :name       label
+    :recover!   #(kg/reset-conn! store)}
+   f))
 
 (defn- write-with-retry
   "Bounded Datahike write with auto-heal. Per-attempt budget `*write-timeout-ms*`;
    recover via `reopen!` on non-timeout failure; timeouts surface immediately."
   [label reopen! f]
-  (retry/with-recovery
-    {:timeout-ms *write-timeout-ms*
-     :name       label
-     :recover!   reopen!
-     :on-failure (fn [l result] (throw-write-failed! l result))}
-    f))
+  (bounded/write-with-retry
+   {:timeout-ms *write-timeout-ms* :name label :recover! reopen!}
+   f))
 
 (declare validate-config!)
 
@@ -322,24 +306,16 @@
                       #(deref (d/transact! (kg/ensure-conn! this) tx-data))))
 
   (query [this q]
-    (read-with-retry "query"
-                     #(kg/reset-conn! this)
-                     #(d/q q (d/db (kg/ensure-conn! this)))))
+    (read-with-retry this "query" #(d/q q (d/db (kg/ensure-conn! this)))))
 
   (query [this q inputs]
-    (read-with-retry "query-with-inputs"
-                     #(kg/reset-conn! this)
-                     #(apply d/q q (d/db (kg/ensure-conn! this)) inputs)))
+    (read-with-retry this "query-with-inputs" #(apply d/q q (d/db (kg/ensure-conn! this)) inputs)))
 
   (entity [this eid]
-    (read-with-retry "entity"
-                     #(kg/reset-conn! this)
-                     #(d/entity (d/db (kg/ensure-conn! this)) eid)))
+    (read-with-retry this "entity" #(d/entity (d/db (kg/ensure-conn! this)) eid)))
 
   (entid [this lookup-ref]
-    (read-with-retry "entid"
-                     #(kg/reset-conn! this)
-                     #(let [[attr val] lookup-ref]
+    (read-with-retry this "entid" #(let [[attr val] lookup-ref]
                         (d/q '[:find ?e .
                                :in $ ?attr ?val
                                :where [?e ?attr ?val]]
@@ -347,19 +323,13 @@
                              attr val))))
 
   (pull-entity [this pattern eid]
-    (read-with-retry "pull-entity"
-                     #(kg/reset-conn! this)
-                     #(d/pull (d/db (kg/ensure-conn! this)) pattern eid)))
+    (read-with-retry this "pull-entity" #(d/pull (d/db (kg/ensure-conn! this)) pattern eid)))
 
   (eids-by-attr [this attr]
-    (read-with-retry "eids-by-attr"
-                     #(kg/reset-conn! this)
-                     #(mapv :e (d/datoms (d/db (kg/ensure-conn! this)) :aevt attr))))
+    (read-with-retry this "eids-by-attr" #(mapv :e (d/datoms (d/db (kg/ensure-conn! this)) :aevt attr))))
 
   (db-snapshot [this]
-    (read-with-retry "db-snapshot"
-                     #(kg/reset-conn! this)
-                     #(d/db (kg/ensure-conn! this))))
+    (read-with-retry this "db-snapshot" #(d/db (kg/ensure-conn! this))))
 
   (reset-conn! [this]
     ;; NON-DESTRUCTIVE — release conn and reopen against the SAME on-disk DB.
@@ -415,34 +385,45 @@
     (d/since (d/db (kg/ensure-conn! this)) tx-or-time))
 
   (query-history [this q]
-    (read-with-retry "query-history"
-                     #(kg/reset-conn! this)
-                     #(d/q q (kg/history-db this))))
+    (read-with-retry this "query-history" #(d/q q (kg/history-db this))))
 
   (query-history [this q inputs]
-    (read-with-retry "query-history-with-inputs"
-                     #(kg/reset-conn! this)
-                     #(apply d/q q (kg/history-db this) inputs)))
+    (read-with-retry this "query-history-with-inputs" #(apply d/q q (kg/history-db this) inputs)))
 
   (query-as-of [this tx-or-time q]
-    (read-with-retry "query-as-of"
-                     #(kg/reset-conn! this)
-                     #(d/q q (kg/as-of-db this tx-or-time))))
+    (read-with-retry this "query-as-of" #(d/q q (kg/as-of-db this tx-or-time))))
 
   (query-as-of [this tx-or-time q inputs]
-    (read-with-retry "query-as-of-with-inputs"
-                     #(kg/reset-conn! this)
-                     #(apply d/q q (kg/as-of-db this tx-or-time) inputs))))
+    (read-with-retry this "query-as-of-with-inputs" #(apply d/q q (kg/as-of-db this tx-or-time) inputs))))
 
 (defn create-store
   "Create a Datahike-backed IKGStore. See `make-config` for config opts;
    `:core-norms-resource` is a classpath path the host injects for the base KG
-   norms (nil skips core norms). Returns nil on failure (rescue-wrapped)."
+   norms (nil skips core norms). `:read-pool` is the ExecutorService reads run
+   on (default: the process-wide bounded pool, hive-datahike.kg.bounded).
+   Returns nil on failure (rescue-wrapped)."
   [& [opts]]
   (rescue nil
           (let [cfg (make-config opts)]
             (log/info "Creating Datahike graph store" {:cfg cfg})
-            (->DatahikeStore (atom nil) cfg (:core-norms-resource opts)))))
+            (cond-> (->DatahikeStore (atom nil) cfg (:core-norms-resource opts))
+              (:read-pool opts) (assoc :read-pool (:read-pool opts))))))
+
+(defn pull-many
+  "Pull every entity in `eids` with `pattern` as ONE read: one task on the
+   store's bounded read pool, one `*read-timeout-ms*` deadline for the whole
+   batch, one snapshot for every entity. Returns a vector aligned with `eids`
+   (nil where an eid has no datoms). A batch of N costs one pool task, where N
+   `kg/pull-entity` calls cost N, each with its own deadline.
+
+   Throws like every other read on timeout, rejection or a failure the reopen
+   does not cure: a batch has no per-entity answer to fake."
+  [store pattern eids]
+  (if (empty? eids)
+    []
+    (read-with-retry store "pull-many"
+                     #(let [db (d/db (kg/ensure-conn! store))]
+                        (mapv (fn [eid] (d/pull db pattern eid)) eids)))))
 
 (defn health
   "Report whether the loaded runtime can open the store and its version provenance."
