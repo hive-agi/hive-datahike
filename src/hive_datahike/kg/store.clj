@@ -306,10 +306,10 @@
                       #(deref (d/transact! (kg/ensure-conn! this) tx-data))))
 
   (query [this q]
-    (read-with-retry this "query" #(d/q q (d/db (kg/ensure-conn! this)))))
+    (read-with-retry this "query" #(d/q (bounded/with-cancel q) (d/db (kg/ensure-conn! this)))))
 
   (query [this q inputs]
-    (read-with-retry this "query-with-inputs" #(apply d/q q (d/db (kg/ensure-conn! this)) inputs)))
+    (read-with-retry this "query-with-inputs" #(apply d/q (bounded/with-cancel q) (d/db (kg/ensure-conn! this)) inputs)))
 
   (entity [this eid]
     (read-with-retry this "entity" #(d/entity (d/db (kg/ensure-conn! this)) eid)))
@@ -326,7 +326,8 @@
     (read-with-retry this "pull-entity" #(d/pull (d/db (kg/ensure-conn! this)) pattern eid)))
 
   (eids-by-attr [this attr]
-    (read-with-retry this "eids-by-attr" #(mapv :e (d/datoms (d/db (kg/ensure-conn! this)) :aevt attr))))
+    (read-with-retry this "eids-by-attr" #(into [] (map (fn [datom] (bounded/check-cancel!) (:e datom)))
+                                               (d/datoms (d/db (kg/ensure-conn! this)) :aevt attr))))
 
   (db-snapshot [this]
     (read-with-retry this "db-snapshot" #(d/db (kg/ensure-conn! this))))
@@ -385,16 +386,16 @@
     (d/since (d/db (kg/ensure-conn! this)) tx-or-time))
 
   (query-history [this q]
-    (read-with-retry this "query-history" #(d/q q (kg/history-db this))))
+    (read-with-retry this "query-history" #(d/q (bounded/with-cancel q) (kg/history-db this))))
 
   (query-history [this q inputs]
-    (read-with-retry this "query-history-with-inputs" #(apply d/q q (kg/history-db this) inputs)))
+    (read-with-retry this "query-history-with-inputs" #(apply d/q (bounded/with-cancel q) (kg/history-db this) inputs)))
 
   (query-as-of [this tx-or-time q]
-    (read-with-retry this "query-as-of" #(d/q q (kg/as-of-db this tx-or-time))))
+    (read-with-retry this "query-as-of" #(d/q (bounded/with-cancel q) (kg/as-of-db this tx-or-time))))
 
   (query-as-of [this tx-or-time q inputs]
-    (read-with-retry this "query-as-of-with-inputs" #(apply d/q q (kg/as-of-db this tx-or-time) inputs))))
+    (read-with-retry this "query-as-of-with-inputs" #(apply d/q (bounded/with-cancel q) (kg/as-of-db this tx-or-time) inputs))))
 
 (defn create-store
   "Create a Datahike-backed IKGStore. See `make-config` for config opts;
@@ -423,7 +424,7 @@
     []
     (read-with-retry store "pull-many"
                      #(let [db (d/db (kg/ensure-conn! store))]
-                        (mapv (fn [eid] (d/pull db pattern eid)) eids)))))
+                        (mapv (fn [eid] (bounded/check-cancel!) (d/pull db pattern eid)) eids)))))
 
 (defn health
   "Report whether the loaded runtime can open the store and its version provenance."
