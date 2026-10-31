@@ -1,0 +1,12 @@
+{:addon/id           "hive.datahike.store"
+ :addon/kind         :library
+ :addon/type         :native
+ :addon/version      "0.1.0"
+ :addon/init-ns      "hive-datahike.store.addon"
+ :addon/init-fn      "create-addon"
+ :addon/config       {}
+ :addon/capabilities #{:datalog-store :temporal-store :schema-migrator :health-reporting}
+ :addon/dependencies #{}
+ :addon/description  "Datahike provider of the hive-contracts storage ports IDatalogStore, ITemporalStore and ISchemaMigrator."
+ :addon/maturity     :beta
+ :addon/trust-class  :foss}

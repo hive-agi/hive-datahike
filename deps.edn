@@ -1,4 +1,4 @@
-{:paths ["src"]
+{:paths ["src" "resources"]
 
  ;; The private registry. Declared HERE, not only in a developer's user-level
  ;; deps.edn, so a cold clone and CI resolve hive-agi artifacts identically.
@@ -22,6 +22,16 @@
 
         ;; hive-spi — IKGStore / IPersistentKGStore / ITemporalKGStore contracts.
         io.github.hive-agi/hive-spi {:mvn/version "1.4.9"}
+
+        ;; hive-contracts — IDatalogStore / ITemporalStore / ISchemaMigrator
+        ;; ports + store.conformance. Pinned to the staging sha that carries the
+        ;; storage seam: no published release holds it yet (latest jar 0.2.6).
+        io.github.hive-agi/hive-contracts
+        {:git/url "git@gitea.hive-mcp.com:hive-agi/hive-contracts.git"
+         :git/sha "944d80f50764a913460d4ad95c8821cb421921e8"}
+
+        ;; hive-addon — IAddon, through which the storage providers register.
+        io.github.hive-agi/hive-addon {:mvn/version "1.1.8"}
 
         ;; hive-dsl — Result/rescue DSL. hive-weave — retry/with-recovery auto-heal.
         io.github.hive-agi/hive-dsl {:mvn/version "0.5.37"}
