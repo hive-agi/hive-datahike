@@ -89,6 +89,20 @@
       (finally
         (kg/close! sut)))))
 
+(deftest health-reports-shut-down-writer-as-unhealthy-test
+  (let [sut (memory-store)]
+    (try
+      (is (= :running (:writer (store/health sut))))
+      (writer/shutdown (:writer (d/db (kg/ensure-conn! sut))))
+      (let [result (store/health sut)]
+        (testing "a closed writer is not healthy even though reads still work"
+          (is (= :unhealthy (:status result)))
+          (is (= :shut-down (:writer result)))
+          (is (= :datahike/writer-shut-down (get-in result [:error :type])))
+          (is (true? (:compatible? result)))))
+      (finally
+        (kg/close! sut)))))
+
 (deftest connect-mismatch-preserves-version-provenance-test
   (let [mismatch {:type :db-was-written-with-newer-konserve-version
                   :stored "0.9.353"

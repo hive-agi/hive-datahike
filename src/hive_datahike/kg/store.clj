@@ -12,7 +12,8 @@
             [clojure.java.io :as io]
             [clojure.string :as str]
             [taoensso.timbre :as log]
-            [hive-datahike.kg.bounded :as bounded]))
+            [hive-datahike.kg.bounded :as bounded]
+            [clojure.core.async.impl.protocols :as async-protocols]))
 ;; SPDX-License-Identifier: MIT
 
 (defonce ^:private addon-norms-registry (atom []))
@@ -426,15 +427,34 @@
                      #(let [db (d/db (kg/ensure-conn! store))]
                         (mapv (fn [eid] (bounded/check-cancel!) (d/pull db pattern eid)) eids)))))
 
+(defn writer-liveness
+  "Liveness of the connection's writer, read without dispatching anything:
+   :running, :shut-down (its transaction queue is closed, so every write fails
+   with \"Writer is shut down\") or :unknown (no local queue to inspect, e.g. a
+   remote writer)."
+  [conn]
+  (let [queue (some-> conn d/db :writer :transaction-queue)]
+    (cond
+      (nil? queue)                       :unknown
+      (async-protocols/closed? queue)    :shut-down
+      :else                              :running)))
+
 (defn health
   "Report whether the loaded runtime can open the store and its version provenance."
   [store]
   (try
-    {:status :healthy
-     :backend :datahike
-     :compatible? true
-     :version-provenance
-     (connection-version-provenance (kg/ensure-conn! store))}
+    (let [conn   (kg/ensure-conn! store)
+          writer (writer-liveness conn)
+          base   {:backend :datahike
+                  :compatible? true
+                  :writer writer
+                  :version-provenance (connection-version-provenance conn)}]
+      (if (= :shut-down writer)
+        (assoc base
+               :status :unhealthy
+               :error {:type :datahike/writer-shut-down
+                       :message "Datahike writer is shut down; reads work but every write is dropped until the store is reopened."})
+        (assoc base :status :healthy)))
     (catch Exception e
       (let [data (ex-data e)]
         {:status :unhealthy
