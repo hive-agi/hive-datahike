@@ -21,7 +21,7 @@
         environ/environ {:mvn/version "1.2.0"}
 
         ;; hive-spi — IKGStore / IPersistentKGStore / ITemporalKGStore contracts.
-        io.github.hive-agi/hive-spi {:mvn/version "1.4.14"}
+        io.github.hive-agi/hive-spi {:mvn/version "1.4.18"}
 
         ;; hive-contracts — IDatalogStore / ITemporalStore / ISchemaMigrator
         ;; ports + store.conformance. Pinned to the staging sha that carries the
@@ -31,7 +31,7 @@
          :git/sha "944d80f50764a913460d4ad95c8821cb421921e8"}
 
         ;; hive-addon — IAddon, through which the storage providers register.
-        io.github.hive-agi/hive-addon {:mvn/version "1.1.8"}
+        io.github.hive-agi/hive-addon {:mvn/version "1.1.13"}
 
         ;; hive-dsl — Result/rescue DSL. hive-weave — retry/with-recovery auto-heal.
         io.github.hive-agi/hive-dsl {:mvn/version "0.6.2"}
@@ -47,5 +47,5 @@
          :exec-fn cognitect.test-runner.api/test}
 
   :build
-  {:deps {io.github.hive-agi/hive-build {:mvn/version "0.2.1"}}
+  {:deps {io.github.hive-agi/hive-build {:mvn/version "0.3.1"}}
    :ns-default hive-build.api}}}
