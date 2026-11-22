@@ -47,5 +47,5 @@
          :exec-fn cognitect.test-runner.api/test}
 
   :build
-  {:deps {io.github.hive-agi/hive-build {:mvn/version "0.3.1"}}
+  {:deps {io.github.hive-agi/hive-build {:mvn/version "0.3.3"}}
    :ns-default hive-build.api}}}
